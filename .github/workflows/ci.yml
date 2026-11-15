@@ -10,7 +10,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
-      SKY130_PDK_ROOT: ${{ runner.temp }}/sky130-pdk-src
       ANALOG_BLOCKS_REQUIRE_SIM: "1"
     steps:
       - uses: actions/checkout@v4
@@ -26,7 +25,11 @@ jobs:
           ngspice -v | head -2
 
       - name: Fetch the Sky130 device models (pinned commit)
-        run: scripts/fetch_pdk.sh
+        env:
+          SKY130_PDK_ROOT: ${{ runner.temp }}/sky130-pdk-src
+        run: |
+          scripts/fetch_pdk.sh
+          echo "SKY130_PDK_ROOT=${RUNNER_TEMP}/sky130-pdk-src" >> "$GITHUB_ENV"
 
       - name: Install Python dependencies
         run: |
