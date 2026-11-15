@@ -1,0 +1,53 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      ANALOG_BLOCKS_REQUIRE_SIM: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ngspice
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ngspice
+          ngspice -v | head -2
+
+      - name: Fetch the Sky130 device models (pinned commit)
+        env:
+          SKY130_PDK_ROOT: ${{ runner.temp }}/sky130-pdk-src
+        run: |
+          scripts/fetch_pdk.sh
+          echo "SKY130_PDK_ROOT=${RUNNER_TEMP}/sky130-pdk-src" >> "$GITHUB_ENV"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[test]"
+
+      - name: Unit tests (hand calculations)
+        run: pytest -m "not sim" -q
+
+      - name: Simulator tests (ngspice on Sky130)
+        run: pytest -m sim -q
+
+      - name: Full run, writes results/
+        run: python -m analog_blocks run --out results
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sky130-analog-blocks-results
+          path: results/
